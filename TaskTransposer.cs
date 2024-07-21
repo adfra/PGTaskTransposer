@@ -202,13 +202,16 @@ public class Program
 
     public static void Main(string[] args)
     {
+        string outputFormat;
         if (args.Length < 1)
         {
-            Console.WriteLine("Please specify the output format: xctsk or cup");
-            return;
+            Console.WriteLine("Please specify the output format: xctsk or cup. Defaulting to .cup format.");
+            outputFormat = "cup";
         }
-
-        string outputFormat = args[0].ToLower();
+        else
+        {
+            outputFormat = args[0].ToLower();
+        }
 
         if (outputFormat != "xctsk" && outputFormat != "cup")
         {
