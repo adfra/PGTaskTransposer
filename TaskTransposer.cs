@@ -167,8 +167,55 @@ public class Program
         };
     }
 
-    public static void Main()
+    private static string ConvertToCup(Task task)
     {
+        var cupLines = new List<string>
+        {
+            "name,code,country,lat,lon,elev,style,rwdir,rwlen,freq,desc"
+        };
+
+        foreach (var turnpoint in task.turnpoints)
+        {
+            var wp = turnpoint.waypoint;
+            var lat = $"{Math.Abs(wp.lat):00}{Math.Abs(wp.lat % 1 * 60):00.000}{(wp.lat >= 0 ? "N" : "S")}";
+            var lon = $"{Math.Abs(wp.lon):000}{Math.Abs(wp.lon % 1 * 60):00.000}{(wp.lon >= 0 ? "E" : "W")}";
+            cupLines.Add($"\"{wp.name}\",{wp.name},,{lat},{lon},{wp.altSmoothed}m,1,,,,");
+        }
+
+        cupLines.Add("-----Related Tasks-----");
+        var taskLine = $"\"{task.taskType}\",\"\",{string.Join(",", task.turnpoints.Select(tp => $"\"{tp.waypoint.name}\""))},\"\"";
+        cupLines.Add(taskLine);
+
+        cupLines.Add("Options,GoalIsLine=True,Competition=True");
+
+        for (int i = 0; i < task.turnpoints.Count; i++)
+        {
+            var tp = task.turnpoints[i];
+            var obsZoneLine = $"ObsZone={i},R1={tp.radius}m";
+            if (tp.type == "SSS") obsZoneLine += ",sss=True";
+            if (tp.type == "ESS") obsZoneLine += ",ess=True,Line=True";
+            cupLines.Add(obsZoneLine);
+        }
+
+        return string.Join("\n", cupLines);
+    }
+
+    public static void Main(string[] args)
+    {
+        if (args.Length < 1)
+        {
+            Console.WriteLine("Please specify the output format: xctsk or cup");
+            return;
+        }
+
+        string outputFormat = args[0].ToLower();
+
+        if (outputFormat != "xctsk" && outputFormat != "cup")
+        {
+            Console.WriteLine("Unknown format requested. Please use either 'xctsk' or 'cup'. DEFAULTING TO CUP");
+            outputFormat = "cup";
+        }
+
         // Read the input file
         var inputJson = File.ReadAllText("SCR_Hüsliberg_v2.xctsk");
         var inputTask = JsonConvert.DeserializeObject<Task>(inputJson);
@@ -178,9 +225,17 @@ public class Program
         var transformedTask45 = TransformTask(inputTask, 47.19648, 9.09960, 45);
 
         // Write the output files
-        File.WriteAllText("transformed_task_180.xctsk", JsonConvert.SerializeObject(transformedTask180, Formatting.Indented));
-        File.WriteAllText("transformed_task_45.xctsk", JsonConvert.SerializeObject(transformedTask45, Formatting.Indented));
-
-        Console.WriteLine("Tasks transformed and saved to transformed_task_180.xctsk and transformed_task_45.xctsk");
+        if (outputFormat == "xctsk")
+        {
+            File.WriteAllText("transformed_task_180.xctsk", JsonConvert.SerializeObject(transformedTask180, Formatting.Indented));
+            File.WriteAllText("transformed_task_45.xctsk", JsonConvert.SerializeObject(transformedTask45, Formatting.Indented));
+            Console.WriteLine("Tasks transformed and saved to transformed_task_180.xctsk and transformed_task_45.xctsk");
+        }
+        else if(outputFormat == "cup") // cup format
+        {
+            File.WriteAllText("transformed_task_180.cup", ConvertToCup(transformedTask180));
+            File.WriteAllText("transformed_task_45.cup", ConvertToCup(transformedTask45));
+            Console.WriteLine("Tasks transformed and saved to transformed_task_180.cup and transformed_task_45.cup");
+        }
     }
 }
