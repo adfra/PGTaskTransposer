@@ -141,36 +141,19 @@ public class Program
 
             var type = task.turnpoints[i].type;
 
-            if(type != null) {
-                newTurnpoints.Add(new Turnpoint
-                {
-                    radius = task.turnpoints[i].radius,
-                    waypoint = new Waypoint
-                    {
-                        name = oldCurrent.name,
-                        description = oldCurrent.description,
-                        lat = newLat,
-                        lon = newLon,
-                        altSmoothed = oldCurrent.altSmoothed
-                    },
-                    type = task.turnpoints[i].type
-                });
-            }
-            else
+            newTurnpoints.Add(new Turnpoint
             {
-                newTurnpoints.Add(new Turnpoint
+                radius = task.turnpoints[i].radius,
+                waypoint = new Waypoint
                 {
-                    radius = task.turnpoints[i].radius,
-                    waypoint = new Waypoint
-                    {
-                        name = oldCurrent.name,
-                        description = oldCurrent.description,
-                        lat = newLat,
-                        lon = newLon,
-                        altSmoothed = oldCurrent.altSmoothed
-                    }
-                });
-            }
+                    name = oldCurrent.name,
+                    description = oldCurrent.description,
+                    lat = newLat,
+                    lon = newLon,
+                    altSmoothed = oldCurrent.altSmoothed
+                },
+                type = task.turnpoints[i].type
+            });
         }
 
         return new Task
