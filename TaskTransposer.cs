@@ -7,41 +7,41 @@ public class Program
 {
     public class Waypoint
     {
-        public string Name { get; set; }
-        public string Description { get; set; }
-        public double Lat { get; set; }
-        public double Lon { get; set; }
-        public int AltSmoothed { get; set; }
+        public string name { get; set; }
+        public string description { get; set; }
+        public double lat { get; set; }
+        public double lon { get; set; }
+        public int altSmoothed { get; set; }
     }
 
     public class Turnpoint
     {
-        public int Radius { get; set; }
-        public Waypoint Waypoint { get; set; }
-        public string Type { get; set; }
+        public int radius { get; set; }
+        public Waypoint waypoint { get; set; }
+        public string type { get; set; }
     }
 
     public class SSS
     {
-        public string Type { get; set; }
-        public string Direction { get; set; }
-        public List<string> TimeGates { get; set; }
+        public string type { get; set; }
+        public string direction { get; set; }
+        public List<string> timeGates { get; set; }
     }
 
     public class Goal
     {
-        public string Type { get; set; }
-        public string Deadline { get; set; }
+        public string type { get; set; }
+        public string deadline { get; set; }
     }
 
     public class Task
     {
-        public int Version { get; set; }
-        public string TaskType { get; set; }
-        public string EarthModel { get; set; }
-        public SSS Sss { get; set; }
-        public Goal Goal { get; set; }
-        public List<Turnpoint> Turnpoints { get; set; }
+        public int version { get; set; }
+        public string taskType { get; set; }
+        public string earthModel { get; set; }
+        public SSS sss { get; set; }
+        public Goal goal { get; set; }
+        public List<Turnpoint> turnpoints { get; set; }
     }
 
     private static double DegToRad(double degrees)
@@ -100,55 +100,55 @@ public class Program
 
     private static Task TransformTaskOLD(Task task, double newStartLat, double newStartLon, double newHeading)
     {
-        var oldStart = task.Turnpoints[0].Waypoint;
+        var oldStart = task.turnpoints[0].waypoint;
 
         var transformedTurnpoints = new List<Turnpoint>();
-        for (int i = 0; i < task.Turnpoints.Count; i++)
+        for (int i = 0; i < task.turnpoints.Count; i++)
         {
-            var tp = task.Turnpoints[i];
+            var tp = task.turnpoints[i];
             if (i == 0)
             {
                 // The start point
                 transformedTurnpoints.Add(new Turnpoint
                 {
-                    Radius = tp.Radius,
-                    Waypoint = new Waypoint
+                    radius = tp.radius,
+                    waypoint = new Waypoint
                     {
-                        Name = tp.Waypoint.Name,
-                        Description = tp.Waypoint.Description,
-                        Lat = newStartLat,
-                        Lon = newStartLon,
-                        AltSmoothed = tp.Waypoint.AltSmoothed
+                        name = tp.waypoint.name,
+                        description = tp.waypoint.description,
+                        lat = newStartLat,
+                        lon = newStartLon,
+                        altSmoothed = tp.waypoint.altSmoothed
                     },
-                    Type = tp.Type
+                    type = tp.type
                 });
             }
             else if (i == 1)
             {
                 // The second point (end of first leg)
-                var distance = CalculateDistance(oldStart.Lat, oldStart.Lon, tp.Waypoint.Lat, tp.Waypoint.Lon);
+                var distance = CalculateDistance(oldStart.lat, oldStart.lon, tp.waypoint.lat, tp.waypoint.lon);
                 var (newLat, newLon) = CalculateDestination(newStartLat, newStartLon, newHeading, distance);
                 transformedTurnpoints.Add(new Turnpoint
                 {
-                    Radius = tp.Radius,
-                    Waypoint = new Waypoint
+                    radius = tp.radius,
+                    waypoint = new Waypoint
                     {
-                        Name = tp.Waypoint.Name,
-                        Description = tp.Waypoint.Description,
-                        Lat = newLat,
-                        Lon = newLon,
-                        AltSmoothed = tp.Waypoint.AltSmoothed
+                        name = tp.waypoint.name,
+                        description = tp.waypoint.description,
+                        lat = newLat,
+                        lon = newLon,
+                        altSmoothed = tp.waypoint.altSmoothed
                     },
-                    Type = tp.Type
+                    type = tp.type
                 });
             }
             else
             {
                 // All subsequent points
-                var distance = CalculateDistance(oldStart.Lat, oldStart.Lon, tp.Waypoint.Lat, tp.Waypoint.Lon);
-                var oldBearing = CalculateBearing(oldStart.Lat, oldStart.Lon, tp.Waypoint.Lat, tp.Waypoint.Lon);
-                var oldFirstLegBearing = CalculateBearing(task.Turnpoints[0].Waypoint.Lat, task.Turnpoints[0].Waypoint.Lon,
-                                                          task.Turnpoints[1].Waypoint.Lat, task.Turnpoints[1].Waypoint.Lon);
+                var distance = CalculateDistance(oldStart.lat, oldStart.lon, tp.waypoint.lat, tp.waypoint.lon);
+                var oldBearing = CalculateBearing(oldStart.lat, oldStart.lon, tp.waypoint.lat, tp.waypoint.lon);
+                var oldFirstLegBearing = CalculateBearing(task.turnpoints[0].waypoint.lat, task.turnpoints[0].waypoint.lon,
+                                                          task.turnpoints[1].waypoint.lat, task.turnpoints[1].waypoint.lon);
 
                 // Calculate the angle relative to the first leg
                 var relativeAngle = (oldBearing - oldFirstLegBearing + 360) % 360;
@@ -160,95 +160,114 @@ public class Program
 
                 transformedTurnpoints.Add(new Turnpoint
                 {
-                    Radius = tp.Radius,
-                    Waypoint = new Waypoint
+                    radius = tp.radius,
+                    waypoint = new Waypoint
                     {
-                        Name = tp.Waypoint.Name,
-                        Description = tp.Waypoint.Description,
-                        Lat = newLat,
-                        Lon = newLon,
-                        AltSmoothed = tp.Waypoint.AltSmoothed
+                        name = tp.waypoint.name,
+                        description = tp.waypoint.description,
+                        lat = newLat,
+                        lon = newLon,
+                        altSmoothed = tp.waypoint.altSmoothed
                     },
-                    Type = tp.Type
+                    type = tp.type
                 });
             }
         }
 
         return new Task
         {
-            Version = task.Version,
-            TaskType = task.TaskType,
-            EarthModel = task.EarthModel,
-            Sss = task.Sss,
-            Goal = task.Goal,
-            Turnpoints = transformedTurnpoints
+            version = task.version,
+            taskType = task.taskType,
+            earthModel = task.earthModel,
+            sss = task.sss,
+            goal = task.goal,
+            turnpoints = transformedTurnpoints
         };
     }
 
     private static Task TransformTask(Task task, double newStartLat, double newStartLon, double newHeading)
     {
-        var oldStart = task.Turnpoints[0].Waypoint;
+        var oldStart = task.turnpoints[0].waypoint;
         var newTurnpoints = new List<Turnpoint>();
 
         // Transform the start point
         newTurnpoints.Add(new Turnpoint
         {
-            Radius = task.Turnpoints[0].Radius,
-            Waypoint = new Waypoint
+            radius = task.turnpoints[0].radius,
+            waypoint = new Waypoint
             {
-                Name = oldStart.Name,
-                Description = oldStart.Description,
-                Lat = newStartLat,
-                Lon = newStartLon,
-                AltSmoothed = oldStart.AltSmoothed
+                name = oldStart.name,
+                description = oldStart.description,
+                lat = newStartLat,
+                lon = newStartLon,
+                altSmoothed = oldStart.altSmoothed
             },
-            Type = task.Turnpoints[0].Type
+            type = task.turnpoints[0].type
         });
 
         // Calculate the rotation angle
-        var oldFirstLegBearing = CalculateBearing(task.Turnpoints[0].Waypoint.Lat, task.Turnpoints[0].Waypoint.Lon,
-                                                  task.Turnpoints[1].Waypoint.Lat, task.Turnpoints[1].Waypoint.Lon);
+        var oldFirstLegBearing = CalculateBearing(task.turnpoints[0].waypoint.lat, task.turnpoints[0].waypoint.lon,
+                                                  task.turnpoints[1].waypoint.lat, task.turnpoints[1].waypoint.lon);
         var rotationAngle = newHeading - oldFirstLegBearing;
 
-        for (int i = 1; i < task.Turnpoints.Count; i++)
+        for (int i = 1; i < task.turnpoints.Count; i++)
         {
-            var oldPrev = task.Turnpoints[i - 1].Waypoint;
-            var oldCurrent = task.Turnpoints[i].Waypoint;
-            var newPrev = newTurnpoints[i - 1].Waypoint;
+            var oldPrev = task.turnpoints[i - 1].waypoint;
+            var oldCurrent = task.turnpoints[i].waypoint;
+            var newPrev = newTurnpoints[i - 1].waypoint;
 
             // Calculate distance and bearing from previous to current point
-            var distance = CalculateDistance(oldPrev.Lat, oldPrev.Lon, oldCurrent.Lat, oldCurrent.Lon);
-            var oldBearing = CalculateBearing(oldPrev.Lat, oldPrev.Lon, oldCurrent.Lat, oldCurrent.Lon);
+            var distance = CalculateDistance(oldPrev.lat, oldPrev.lon, oldCurrent.lat, oldCurrent.lon);
+            var oldBearing = CalculateBearing(oldPrev.lat, oldPrev.lon, oldCurrent.lat, oldCurrent.lon);
 
             // Apply rotation to the bearing
             var newBearing = (oldBearing + rotationAngle + 360) % 360;
 
             // Calculate new position
-            var (newLat, newLon) = CalculateDestination(newPrev.Lat, newPrev.Lon, newBearing, distance);
+            var (newLat, newLon) = CalculateDestination(newPrev.lat, newPrev.lon, newBearing, distance);
 
-            newTurnpoints.Add(new Turnpoint
-            {
-                Radius = task.Turnpoints[i].Radius,
-                Waypoint = new Waypoint
+            var type = task.turnpoints[i].type;
+
+            if(type != null) {
+                newTurnpoints.Add(new Turnpoint
                 {
-                    Name = oldCurrent.Name,
-                    Description = oldCurrent.Description,
-                    Lat = newLat,
-                    Lon = newLon,
-                    AltSmoothed = oldCurrent.AltSmoothed
-                },
-                Type = task.Turnpoints[i].Type
-            });
+                    radius = task.turnpoints[i].radius,
+                    waypoint = new Waypoint
+                    {
+                        name = oldCurrent.name,
+                        description = oldCurrent.description,
+                        lat = newLat,
+                        lon = newLon,
+                        altSmoothed = oldCurrent.altSmoothed
+                    },
+                    type = task.turnpoints[i].type
+                });
+            }
+            else
+            {
+                newTurnpoints.Add(new Turnpoint
+                {
+                    radius = task.turnpoints[i].radius,
+                    waypoint = new Waypoint
+                    {
+                        name = oldCurrent.name,
+                        description = oldCurrent.description,
+                        lat = newLat,
+                        lon = newLon,
+                        altSmoothed = oldCurrent.altSmoothed
+                    }
+                });
+            }
         }
 
         return new Task
         {
-            Version = task.Version,
-            TaskType = task.TaskType,
-            EarthModel = task.EarthModel,
-            Sss = task.Sss,
-            Goal = task.Goal,
-            Turnpoints = newTurnpoints
+            version = task.version,
+            taskType = task.taskType,
+            earthModel = task.earthModel,
+            sss = task.sss,
+            goal = task.goal,
+            turnpoints = newTurnpoints
         };
     }
 
