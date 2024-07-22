@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Newtonsoft.Json;
+using static Program;
 
 public class Program
 {
@@ -200,6 +201,29 @@ public class Program
         return string.Join("\n", cupLines);
     }
 
+    static bool TryParseWaypoint(string waypoint, out double lat, out double lon)
+    {
+        lat = 0;
+        lon = 0;
+
+        // Split the input string by comma
+        string[] parts = waypoint.Split(',');
+
+        // Check if we have exactly 2 parts
+        if (parts.Length != 2)
+        {
+            return false;
+        }
+
+        // Trim whitespace and try to parse both parts as doubles
+        if (double.TryParse(parts[0].Trim(), out lat) && double.TryParse(parts[1].Trim(), out lon))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     public static void Main(string[] args)
     {
         string outputFormat;
@@ -220,25 +244,63 @@ public class Program
         }
 
         // Read the input file
-        var inputJson = File.ReadAllText("SCR_Hüsliberg_v2.xctsk");
+        Console.Write("Please enter filename: ");
+        string filename = Console.ReadLine();
+        if (!File.Exists(filename))
+        {
+            Console.WriteLine("File not found.");
+            return;
+        }
+
+        var inputJson = File.ReadAllText(filename);
         var inputTask = JsonConvert.DeserializeObject<Task>(inputJson);
 
+        Console.Write("Please enter latitude, longitude from Google Maps (nn.nnnnn, m.mmmmm): ");
+        if (!TryParseWaypoint(Console.ReadLine(), out double lat, out double lon))
+        {
+            Console.WriteLine($"Valid waypoint: lat = {lat}, long = {lon}");
+        }
+        else
+        {
+            Console.WriteLine("Invalid waypoint format.");
+            return;
+        }
+
+        //Console.Write("Please enter latitude from Google Maps (nn.nnnnn): ");
+        //if (!double.TryParse(Console.ReadLine(), out double lat))
+        //{
+        //    Console.WriteLine("Invalid latitude. Please enter a valid number.");
+        //    return;
+        //}
+
+        //Console.Write("Please enter longitude from Google Maps (n.nnnnn): ");
+        //if (!double.TryParse(Console.ReadLine(), out double lon))
+        //{
+        //    Console.WriteLine("Invalid longitude. Please enter a valid number.");
+        //    return;
+        //}
+
+        Console.Write("Please enter departure degrees: ");
+        if (!double.TryParse(Console.ReadLine(), out double departureDegrees))
+        {
+            Console.WriteLine("Invalid departure degrees. Please enter a valid number.");
+            return;
+        }
+
         // Transform the task
-        var transformedTask180 = TransformTask(inputTask, 47.19648, 9.09960, 180);
-        var transformedTask45 = TransformTask(inputTask, 47.19648, 9.09960, 45);
+        //var transformedTask = TransformTask(inputTask, 47.19648, 9.09960, 45);
+        var transformedTask = TransformTask(inputTask, lat, lon, departureDegrees);
 
         // Write the output files
         if (outputFormat == "xctsk")
         {
-            File.WriteAllText("transformed_task_180.xctsk", JsonConvert.SerializeObject(transformedTask180, Formatting.Indented));
-            File.WriteAllText("transformed_task_45.xctsk", JsonConvert.SerializeObject(transformedTask45, Formatting.Indented));
-            Console.WriteLine("Tasks transformed and saved to transformed_task_180.xctsk and transformed_task_45.xctsk");
+            File.WriteAllText("transformed_task.xctsk", JsonConvert.SerializeObject(transformedTask, Formatting.Indented));
+            Console.WriteLine("Tasks transformed and saved to transformed_task.xctsk");
         }
         else if(outputFormat == "cup") // cup format
         {
-            File.WriteAllText("transformed_task_180.cup", ConvertToCup(transformedTask180));
-            File.WriteAllText("transformed_task_45.cup", ConvertToCup(transformedTask45));
-            Console.WriteLine("Tasks transformed and saved to transformed_task_180.cup and transformed_task_45.cup");
+            File.WriteAllText("transformed_task.cup", ConvertToCup(transformedTask));
+            Console.WriteLine("Tasks transformed and saved to transformed_task.cup");
         }
     }
 }
