@@ -256,7 +256,7 @@ public class Program
         var inputTask = JsonConvert.DeserializeObject<Task>(inputJson);
 
         Console.Write("Please enter latitude, longitude from Google Maps (nn.nnnnn, m.mmmmm): ");
-        if (!TryParseWaypoint(Console.ReadLine(), out double lat, out double lon))
+        if (TryParseWaypoint(Console.ReadLine(), out double lat, out double lon))
         {
             Console.WriteLine($"Valid waypoint: lat = {lat}, long = {lon}");
         }
