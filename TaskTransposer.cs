@@ -35,6 +35,20 @@ public class Program
         public string deadline { get; set; }
     }
 
+    public class Airspace
+    {
+        public string Name { get; set; }
+        public string Class { get; set; }
+        public List<(double Lat, double Lon)> Coordinates { get; set; }
+        public string Floor { get; set; }
+        public string Ceiling { get; set; }
+
+        public Airspace()
+        {
+            Coordinates = new List<(double Lat, double Lon)>();
+        }
+    }
+
     public class Task
     {
         public int version { get; set; }
@@ -229,7 +243,7 @@ public class Program
         string outputFormat;
         if (args.Length < 1)
         {
-            Console.WriteLine("Please specify the output format: xctsk or cup. Defaulting to .cup format.");
+            Console.WriteLine("Please specify the output format for the task: 'xctsk' or 'cup' (Default: 'cup'");
             outputFormat = "cup";
         }
         else
@@ -243,19 +257,30 @@ public class Program
             outputFormat = "cup";
         }
 
-        // Read the input file
-        Console.Write("Please enter filename: ");
-        string filename = Console.ReadLine();
-        if (!File.Exists(filename))
+        // Read the input task file
+        Console.Write("Please enter task filename (.xctsk): ");
+        string taskFilename = Console.ReadLine();
+        if (!File.Exists(taskFilename))
         {
-            Console.WriteLine("File not found.");
+            Console.WriteLine("Task file not found.");
             return;
         }
 
-        var inputJson = File.ReadAllText(filename);
+        var inputJson = File.ReadAllText(taskFilename);
         var inputTask = JsonConvert.DeserializeObject<Task>(inputJson);
 
-        Console.Write("Please enter latitude, longitude from Google Maps (nn.nnnnn, m.mmmmm): ");
+        // Read the input airspace file
+        Console.Write("Please enter airspace filename (.txt): ");
+        string airspaceFilename = Console.ReadLine();
+        if (!File.Exists(airspaceFilename))
+        {
+            Console.WriteLine("Airspace file not found.");
+            return;
+        }
+
+        var airspaces = ParseOpenAir(airspaceFilename);
+
+        Console.Write("Please enter lat, long for the new starting location from Google Maps (nn.nnnnn, m.mmmmm):");
         if (TryParseWaypoint(Console.ReadLine(), out double lat, out double lon))
         {
             Console.WriteLine($"Valid waypoint: lat = {lat}, long = {lon}");
@@ -266,21 +291,7 @@ public class Program
             return;
         }
 
-        //Console.Write("Please enter latitude from Google Maps (nn.nnnnn): ");
-        //if (!double.TryParse(Console.ReadLine(), out double lat))
-        //{
-        //    Console.WriteLine("Invalid latitude. Please enter a valid number.");
-        //    return;
-        //}
-
-        //Console.Write("Please enter longitude from Google Maps (n.nnnnn): ");
-        //if (!double.TryParse(Console.ReadLine(), out double lon))
-        //{
-        //    Console.WriteLine("Invalid longitude. Please enter a valid number.");
-        //    return;
-        //}
-
-        Console.Write("Please enter departure degrees: ");
+        Console.Write("Please enter new departure direction in degrees: ");
         if (!double.TryParse(Console.ReadLine(), out double departureDegrees))
         {
             Console.WriteLine("Invalid departure degrees. Please enter a valid number.");
@@ -288,19 +299,174 @@ public class Program
         }
 
         // Transform the task
-        //var transformedTask = TransformTask(inputTask, 47.19648, 9.09960, 45);
         var transformedTask = TransformTask(inputTask, lat, lon, departureDegrees);
 
+        // Transform the airspaces
+        var oldStartLat = inputTask.turnpoints[0].waypoint.lat;
+        var oldStartLon = inputTask.turnpoints[0].waypoint.lon;
+        var transformedAirspaces = TransformAirspaces(airspaces, oldStartLat, oldStartLon, lat, lon, departureDegrees);
+
         // Write the output files
+        string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmm");
+
         if (outputFormat == "xctsk")
         {
-            File.WriteAllText("transformed_task.xctsk", JsonConvert.SerializeObject(transformedTask, Formatting.Indented));
-            Console.WriteLine("Tasks transformed and saved to transformed_task.xctsk");
+            string outputFilename = $"TransformedTask_{timestamp}.xctsk";
+            File.WriteAllText(outputFilename, JsonConvert.SerializeObject(transformedTask, Formatting.Indented));
+            Console.WriteLine($"Tasks transformed and saved to {outputFilename}");
         }
-        else if(outputFormat == "cup") // cup format
+        else if (outputFormat == "cup")
         {
-            File.WriteAllText("transformed_task.cup", ConvertToCup(transformedTask));
-            Console.WriteLine("Tasks transformed and saved to transformed_task.cup");
+            string outputFilename = $"TransformedTask_{timestamp}.cup";
+            File.WriteAllText(outputFilename, ConvertToCup(transformedTask));
+            Console.WriteLine($"Tasks transformed and saved to {outputFilename}");
+        }
+
+        // Write the transformed airspaces
+        string airspaceOutputFilename = $"TransformedAirspaces_{timestamp}.txt";
+        WriteOpenAir(transformedAirspaces, airspaceOutputFilename);
+        Console.WriteLine($"Airspaces transformed and saved to {airspaceOutputFilename}");
+    }
+
+    /// <summary>
+    /// FROM HERE THE CODE RELATES TO AIRSPACE HANDLING
+    /// </summary>
+    /// 
+
+    private static List<Airspace> ParseOpenAir(string filename)
+    {
+        var airspaces = new List<Airspace>();
+        Airspace currentAirspace = null;
+
+        foreach (var line in File.ReadLines(filename))
+        {
+            var trimmedLine = line.Trim();
+            if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
+
+            if (trimmedLine.StartsWith("AC"))
+            {
+                if (currentAirspace != null) airspaces.Add(currentAirspace);
+                currentAirspace = new Airspace { Class = trimmedLine.Substring(3) };
+            }
+            else if (trimmedLine.StartsWith("AN")) currentAirspace.Name = trimmedLine.Substring(3);
+            else if (trimmedLine.StartsWith("AL")) currentAirspace.Floor = trimmedLine.Substring(3);
+            else if (trimmedLine.StartsWith("AH")) currentAirspace.Ceiling = trimmedLine.Substring(3);
+            else if (trimmedLine.StartsWith("DP"))
+            {
+                var separator = trimmedLine.Contains("N") ? 'N' : 'S';
+                var parts = trimmedLine.Substring(3).Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries);
+                parts[0] = parts[0] + separator;
+                
+                if (parts.Length == 2)
+                {
+                    if (ParseDmsCoordinate(parts[0], out double lat) &&
+                        ParseDmsCoordinate(parts[1], out double lon))
+                    {
+                        currentAirspace.Coordinates.Add((lat, lon));
+                    }
+                }
+            }
+        }
+
+        if (currentAirspace != null) airspaces.Add(currentAirspace);
+        return airspaces;
+    }
+
+    private static bool ParseDmsCoordinate(string dmsWithHemisphere, out double result)
+    {
+        result = 0;
+        string dms = dmsWithHemisphere.Substring(0, dmsWithHemisphere.Length - 1).Trim();
+        char hemisphere = dmsWithHemisphere[dmsWithHemisphere.Length - 1];
+
+        var parts = dms.Split(':');
+        if (parts.Length != 3) return false;
+
+        if (int.TryParse(parts[0], out int degrees) &&
+            int.TryParse(parts[1], out int minutes) &&
+            double.TryParse(parts[2], out double seconds))
+        {
+            result = degrees + minutes / 60.0 + seconds / 3600.0;
+
+            if (hemisphere == 'S' || hemisphere == 'W')
+            {
+                result = -result;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private static List<Airspace> TransformAirspaces(List<Airspace> airspaces,
+    double oldStartLat, double oldStartLon,
+    double newStartLat, double newStartLon, double newHeading)
+    {
+        var transformedAirspaces = new List<Airspace>();
+
+        // Calculate the rotation angle
+        var firstAirspaceCoord = airspaces[0].Coordinates[0];
+        var oldFirstLegBearing = CalculateBearing(oldStartLat, oldStartLon, firstAirspaceCoord.Lat, firstAirspaceCoord.Lon);
+        var rotationAngle = newHeading - oldFirstLegBearing;
+
+        foreach (var airspace in airspaces)
+        {
+            var transformedAirspace = new Airspace
+            {
+                Name = airspace.Name,
+                Class = airspace.Class,
+                Floor = airspace.Floor,
+                Ceiling = airspace.Ceiling
+            };
+
+            var prevLat = oldStartLat;
+            var prevLon = oldStartLon;
+            var newPrevLat = newStartLat;
+            var newPrevLon = newStartLon;
+
+            foreach (var (lat, lon) in airspace.Coordinates)
+            {
+                // Calculate distance and bearing from previous to current point
+                var distance = CalculateDistance(prevLat, prevLon, lat, lon);
+                var oldBearing = CalculateBearing(prevLat, prevLon, lat, lon);
+
+                // Apply rotation to the bearing
+                var newBearing = (oldBearing + rotationAngle + 360) % 360;
+
+                // Calculate new position
+                var (newLat, newLon) = CalculateDestination(newPrevLat, newPrevLon, newBearing, distance);
+
+                transformedAirspace.Coordinates.Add((newLat, newLon));
+
+                // Update previous coordinates for the next iteration
+                prevLat = lat;
+                prevLon = lon;
+                newPrevLat = newLat;
+                newPrevLon = newLon;
+            }
+
+            transformedAirspaces.Add(transformedAirspace);
+        }
+
+        return transformedAirspaces;
+    }
+
+    private static void WriteOpenAir(List<Airspace> airspaces, string filename)
+    {
+        using (var writer = new StreamWriter(filename))
+        {
+            foreach (var airspace in airspaces)
+            {
+                writer.WriteLine($"AC {airspace.Class}");
+                writer.WriteLine($"AN {airspace.Name}");
+                writer.WriteLine($"AL {airspace.Floor}");
+                writer.WriteLine($"AH {airspace.Ceiling}");
+                foreach (var (lat, lon) in airspace.Coordinates)
+                {
+                    writer.WriteLine($"DP {lat:F6} {lon:F6}");
+                }
+                writer.WriteLine();
+            }
         }
     }
 }
