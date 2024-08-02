@@ -60,16 +60,6 @@ public class Program
         public List<Turnpoint> turnpoints { get; set; }
     }
 
-    //private static double DegToRad(double degrees)
-    //{
-    //    return degrees * (Math.PI / 180);
-    //}
-
-    //private static double RadToDeg(double radians)
-    //{
-    //    return radians * (180 / Math.PI);
-    //}
-
     private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
     {
         var c1 = new Coordinate(lat1, lon1);
@@ -78,16 +68,6 @@ public class Program
 
         return distance.Meters;
 
-        //const double R = 6371; // Earth's radius in km
-        //var dLat = DegToRad(lat2 - lat1);
-        //var dLon = DegToRad(lon2 - lon1);
-        //var a =
-        //    Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-        //    Math.Cos(DegToRad(lat1)) * Math.Cos(DegToRad(lat2)) *
-        //    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-        //var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-        //var dist = R * c;
-        //return dist;
     }
 
     private static double CalculateBearing(double lat1, double lon1, double lat2, double lon2)
@@ -97,13 +77,6 @@ public class Program
         var distance = new Distance(c1, c2);
 
         return distance.Bearing;
-
-        //var y = Math.Sin(DegToRad(lon2 - lon1)) * Math.Cos(DegToRad(lat2));
-        //var x = Math.Cos(DegToRad(lat1)) * Math.Sin(DegToRad(lat2)) -
-        //        Math.Sin(DegToRad(lat1)) * Math.Cos(DegToRad(lat2)) * Math.Cos(DegToRad(lon2 - lon1));
-        //var bearing = RadToDeg(Math.Atan2(y, x));
-        //double bearingInDeg = (bearing + 360) % 360;
-        //return bearingInDeg;
     }
 
     private static (double lat, double lon) CalculateDestination(double lat, double lon, double bearing, double distanceInMeters)
@@ -111,27 +84,6 @@ public class Program
         var c1 = new Coordinate(lat, lon);
         c1.Move(distanceInMeters, bearing, Shape.Ellipsoid);
         return (c1.Latitude.DecimalDegree, c1.Longitude.DecimalDegree);
-
-        //const double R = 6371; // Earth's radius in km
-        //var angularDistance = distanceInKm / R;
-        //var bearingRad = DegToRad(bearing);
-
-        //var lat1 = DegToRad(lat);
-        //var lon1 = DegToRad(lon);
-
-        //var lat2 = Math.Asin(
-        //    Math.Sin(lat1) * Math.Cos(angularDistance) +
-        //    Math.Cos(lat1) * Math.Sin(angularDistance) * Math.Cos(bearingRad)
-        //);
-
-        //var lon2 = lon1 + Math.Atan2(
-        //    Math.Sin(bearingRad) * Math.Sin(angularDistance) * Math.Cos(lat1),
-        //    Math.Cos(angularDistance) - Math.Sin(lat1) * Math.Sin(lat2)
-        //);
-
-        //var lat2Deg = RadToDeg(lat2);
-        //var lon2Deg = RadToDeg(lon2);
-        //return (lat2Deg, lon2Deg);
     }
 
     private static Task TransformTask(Task task, double newStartLat, double newStartLon, double newHeading)
@@ -249,24 +201,7 @@ public class Program
             return true;
         }
 
-        return false;
-        
-        //// Split the input string by comma
-        //string[] parts = waypoint.Split(',');
-
-        //// Check if we have exactly 2 parts
-        //if (parts.Length != 2)
-        //{
-        //    return false;
-        //}
-
-        //// Trim whitespace and try to parse both parts as doubles
-        //if (double.TryParse(parts[0].Trim(), out lat) && double.TryParse(parts[1].Trim(), out lon))
-        //{
-        //    return true;
-        //}
-
-        //return false;
+        return false;        
     }
 
     public static void Main(string[] args)
