@@ -165,8 +165,25 @@ public class Program
         foreach (var turnpoint in task.turnpoints)
         {
             var wp = turnpoint.waypoint;
-            var lat = $"{Math.Abs(wp.lat):00}{Math.Abs(wp.lat % 1 * 60):00.000}{(wp.lat >= 0 ? "N" : "S")}";
-            var lon = $"{Math.Abs(wp.lon):000}{Math.Abs(wp.lon % 1 * 60):00.000}{(wp.lon >= 0 ? "E" : "W")}";
+            var c = new Coordinate(wp.lat, wp.lon);
+
+            c.FormatOptions.Format = CoordinateFormatType.Degree_Decimal_Minutes;
+            c.FormatOptions.Display_Leading_Zeros = true;
+            c.FormatOptions.Round = 3;
+
+            var latDegrees = c.Latitude.Degrees.ToString("00");
+            var latMinutes = c.Latitude.DecimalMinute.ToString("00.000");
+            var latHemisphere = c.Latitude.ToString().Substring(0, 1);
+
+            var lonDegrees = c.Longitude.Degrees.ToString("000");
+            var lonMinutes = c.Longitude.DecimalMinute.ToString("00.000");
+            var lonHemisphere = c.Longitude.ToString().Substring(0, 1);
+
+            var lat = $"{latDegrees}{latMinutes}{latHemisphere}";
+            var lon = $"{lonDegrees}{lonMinutes}{lonHemisphere}";
+          
+            //var lat = $"{Math.Abs(wp.lat):00}{Math.Abs(wp.lat % 1 * 60):00.000}{(wp.lat >= 0 ? "N" : "S")}";
+            //var lon = $"{Math.Abs(wp.lon):000}{Math.Abs(wp.lon % 1 * 60):00.000}{(wp.lon >= 0 ? "E" : "W")}";
             cupLines.Add($"\"{wp.name}\",{wp.name},,{lat},{lon},{wp.altSmoothed}m,1,,,,");
         }
 
