@@ -291,10 +291,15 @@ public class Program
         var transformedTask = TransformTask(inputTask, newStartLat, newStartLon, newDepartureDegrees);
 
         // Transform the airspaces
-        var oldStartLat = inputTask.turnpoints[0].waypoint.lat;
-        var oldStartLon = inputTask.turnpoints[0].waypoint.lon;
-        Coordinate oldStart = new Coordinate(oldStartLat, oldStartLon);
-        var transformedAirspaces = TransformAirspaces(airspacesTemplate, oldStart, newStart, newDepartureDegrees);
+        var tmplStartLat = inputTask.turnpoints[0].waypoint.lat;
+        var tmplStartLon = inputTask.turnpoints[0].waypoint.lon;
+        Coordinate tmplStart = new Coordinate(tmplStartLat, tmplStartLon);
+        Coordinate tmplWP1 = new Coordinate(inputTask.turnpoints[1].waypoint.lat, inputTask.turnpoints[1].waypoint.lon);
+        var tmplFirstLeg = new Distance(tmplStart, tmplWP1);
+        var rotationAngle = (newDepartureDegrees - tmplFirstLeg.Bearing + 360)%360;
+
+
+        var transformedAirspaces = TransformAirspaces(airspacesTemplate, tmplStart, newStart, rotationAngle);
 
         // Write the output files
         string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmm");
@@ -360,18 +365,18 @@ public class Program
         return airspaces;
     }
 
-    private static List<Airspace> TransformAirspaces(List<Airspace> templateAirspaces, Coordinate tmplStart, Coordinate newStart, double newHeading)
+    private static List<Airspace> TransformAirspaces(List<Airspace> templateAirspaces, Coordinate tmplStart, Coordinate newStart, double rotationDegrees)
     {
         var transformedAirspaces = new List<Airspace>();
 
         // Calculate the rotation angle
-        var firstTmplAirspaceCoord = templateAirspaces[0].Coordinates[0];
-        var startToFirstAirspaceCoord = new Distance(tmplStart, firstTmplAirspaceCoord);
-        var tmplFirstLegBearing = startToFirstAirspaceCoord.Bearing;
-        var rotationAngle = newHeading - tmplFirstLegBearing;
+        //var firstTmplAirspaceCoord = templateAirspaces[0].Coordinates[0];
+        //var startToFirstAirspaceCoord = new Distance(tmplStart, firstTmplAirspaceCoord);
+        //var tmplFirstLegBearing = startToFirstAirspaceCoord.Bearing;
+        //var rotationAngle = newHeading - tmplFirstLegBearing;
 
-        var prevTmplCoord = tmplStart;
-        var prevNewCoord = newStart;
+        //var prevTmplCoord = tmplStart;
+        //var prevNewCoord = newStart;
 
         foreach (var airspace in templateAirspaces)
         {
@@ -383,26 +388,19 @@ public class Program
                 Ceiling = airspace.Ceiling
             };
 
-            
-
             foreach (Coordinate curTmplCoord in airspace.Coordinates)
             {
-                // Calculate distance and bearing from previous to current point
-                var tmplLeg = new Distance(prevTmplCoord, curTmplCoord);
+                // Calculate distance and bearing from template start to current template coordinate
+                var tmplLeg = new Distance(tmplStart, curTmplCoord);
 
                 // Apply rotation to the bearing
-                var newBearing = (tmplLeg.Bearing + rotationAngle + 360) % 360;
+                var newBearing = (tmplLeg.Bearing + rotationDegrees + 360) % 360;
 
                 // Calculate new position
-                Coordinate newCoord = new Coordinate(prevNewCoord.Latitude.DecimalDegree, prevNewCoord.Longitude.DecimalDegree);
+                Coordinate newCoord = new Coordinate(newStart.Latitude.DecimalDegree, newStart.Longitude.DecimalDegree);
                 newCoord.Move(tmplLeg.Meters, newBearing, Shape.Ellipsoid);
-              
 
                 transformedAirspace.Coordinates.Add(newCoord);
-
-                // Update previous coordinates for the next iteration
-                prevTmplCoord = curTmplCoord;
-                prevNewCoord = newCoord;
             }
 
             transformedAirspaces.Add(transformedAirspace);
