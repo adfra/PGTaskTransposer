@@ -365,13 +365,13 @@ public class Program
         var transformedAirspaces = new List<Airspace>();
 
         // Calculate the rotation angle
-        var firstTmplAirspaceCoord = templateAirspaces[0].Coordinates[0];
-        var startToFirstAirspaceCoord = new Distance(tmplStart, firstTmplAirspaceCoord);
-        var tmplFirstLegBearing = startToFirstAirspaceCoord.Bearing;
-        var rotationAngle = newHeading - tmplFirstLegBearing;
+        //var firstTmplAirspaceCoord = templateAirspaces[0].Coordinates[0];
+        //var startToFirstAirspaceCoord = new Distance(tmplStart, firstTmplAirspaceCoord);
+        //var tmplFirstLegBearing = startToFirstAirspaceCoord.Bearing;
+        //var rotationAngle = newHeading - tmplFirstLegBearing;
 
-        var prevTmplCoord = tmplStart;
-        var prevNewCoord = newStart;
+        //var prevTmplCoord = tmplStart;
+        //var prevNewCoord = newStart;
 
         foreach (var airspace in templateAirspaces)
         {
@@ -383,26 +383,19 @@ public class Program
                 Ceiling = airspace.Ceiling
             };
 
-            
-
             foreach (Coordinate curTmplCoord in airspace.Coordinates)
             {
-                // Calculate distance and bearing from previous to current point
-                var tmplLeg = new Distance(prevTmplCoord, curTmplCoord);
+                // Calculate distance and bearing from template start to current template coordinate
+                var tmplLeg = new Distance(tmplStart, curTmplCoord);
 
                 // Apply rotation to the bearing
-                var newBearing = (tmplLeg.Bearing + rotationAngle + 360) % 360;
+                var newBearing = (tmplLeg.Bearing + newHeading + 360) % 360;
 
                 // Calculate new position
-                Coordinate newCoord = new Coordinate(prevNewCoord.Latitude.DecimalDegree, prevNewCoord.Longitude.DecimalDegree);
+                Coordinate newCoord = new Coordinate(newStart.Latitude.DecimalDegree, newStart.Longitude.DecimalDegree);
                 newCoord.Move(tmplLeg.Meters, newBearing, Shape.Ellipsoid);
-              
 
                 transformedAirspace.Coordinates.Add(newCoord);
-
-                // Update previous coordinates for the next iteration
-                prevTmplCoord = curTmplCoord;
-                prevNewCoord = newCoord;
             }
 
             transformedAirspaces.Add(transformedAirspace);

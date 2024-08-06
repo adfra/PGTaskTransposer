@@ -1,0 +1,12 @@
+name,code,country,lat,lon,elev,style,rwdir,rwlen,freq,desc
+"WP1",WP1,,4725.027N,00837.733E,436m,1,,,,
+"WP2",WP2,,4725.074N,00838.747E,468m,1,,,,
+"WP3",WP3,,4724.390N,00838.490E,434m,1,,,,
+"WP4",WP4,,4724.592N,00837.115E,446m,1,,,,
+-----Related Tasks-----
+"null","","WP1","WP2","WP3","WP4",""
+Options,StartOnEntry=True,GoalIsLine=True,Competition=True
+ObsZone=0,R1=400m,sss=True
+ObsZone=1,R1=400m
+ObsZone=2,R1=400m
+ObsZone=3,R1=400m,ess=True,Line=True
