@@ -40,13 +40,13 @@ public class Program
     {
         public string Name { get; set; }
         public string Class { get; set; }
-        public List<(double Lat, double Lon)> Coordinates { get; set; }
+        public List<Coordinate> Coordinates { get; set; }
         public string Floor { get; set; }
         public string Ceiling { get; set; }
 
         public Airspace()
         {
-            Coordinates = new List<(double Lat, double Lon)>();
+            Coordinates = new List<Coordinate>();
         }
     }
 
@@ -205,16 +205,18 @@ public class Program
         return string.Join("\n", cupLines);
     }
 
-    static bool TryParseWaypoint(string waypoint, out double lat, out double lon)
+    static bool TryParseWaypoint(string waypoint, out double lat, out double lon, out Coordinate coordinate)
     {
         lat = 0;
         lon = 0;
+        coordinate = null;
 
         Coordinate c;
         if (Coordinate.TryParse(waypoint, out c))
         {
             lat = c.Latitude.DecimalDegree;
             lon = c.Longitude.DecimalDegree;
+            coordinate = c;
             return true;
         }
 
@@ -243,6 +245,7 @@ public class Program
         // Read the input task file
         Console.Write("Please enter task filename (.xctsk): ");
         string taskFilename = Console.ReadLine();
+        if(taskFilename == "") taskFilename = "PGLap_MiniTask_v1.xctsk"; //Default task file (for testing
         if (!File.Exists(taskFilename))
         {
             Console.WriteLine("Task file not found.");
@@ -255,18 +258,21 @@ public class Program
         // Read the input airspace file
         Console.Write("Please enter airspace filename (.txt): ");
         string airspaceFilename = Console.ReadLine();
+        if(airspaceFilename == "") airspaceFilename = "PGLap_MiniTask_v1_Airspace.txt"; //Default airspace file (for testing)
         if (!File.Exists(airspaceFilename))
         {
             Console.WriteLine("Airspace file not found.");
             return;
         }
 
-        var airspaces = ParseOpenAir(airspaceFilename);
+        var airspacesTemplate = ParseOpenAir(airspaceFilename);
 
         Console.Write("Please enter lat, long for the new starting location from Google Maps (nn.nnnnn, m.mmmmm):");
-        if (TryParseWaypoint(Console.ReadLine(), out double lat, out double lon))
+        string newStartCoordString = Console.ReadLine();
+        if (newStartCoordString == "") newStartCoordString = "47.41718775277045, 8.628740563731998"; //Default start location (for testing)
+        if (TryParseWaypoint(newStartCoordString, out double newStartLat, out double newStartLon, out Coordinate newStart))
         {
-            Console.WriteLine($"Valid waypoint: lat = {lat}, long = {lon}");
+            Console.WriteLine($"Valid waypoint: lat = {newStartLat}, long = {newStartLon}");
         }
         else
         {
@@ -275,19 +281,20 @@ public class Program
         }
 
         Console.Write("Please enter new departure direction in degrees: ");
-        if (!double.TryParse(Console.ReadLine(), out double departureDegrees))
+        if (!double.TryParse(Console.ReadLine(), out double newDepartureDegrees))
         {
             Console.WriteLine("Invalid departure degrees. Please enter a valid number.");
             return;
         }
 
         // Transform the task
-        var transformedTask = TransformTask(inputTask, lat, lon, departureDegrees);
+        var transformedTask = TransformTask(inputTask, newStartLat, newStartLon, newDepartureDegrees);
 
         // Transform the airspaces
         var oldStartLat = inputTask.turnpoints[0].waypoint.lat;
         var oldStartLon = inputTask.turnpoints[0].waypoint.lon;
-        var transformedAirspaces = TransformAirspaces(airspaces, oldStartLat, oldStartLon, lat, lon, departureDegrees);
+        Coordinate oldStart = new Coordinate(oldStartLat, oldStartLon);
+        var transformedAirspaces = TransformAirspaces(airspacesTemplate, oldStart, newStart, newDepartureDegrees);
 
         // Write the output files
         string timestamp = DateTime.Now.ToString("yyyyMMdd-HHmm");
@@ -337,17 +344,14 @@ public class Program
             else if (trimmedLine.StartsWith("AH")) currentAirspace.Ceiling = trimmedLine.Substring(3);
             else if (trimmedLine.StartsWith("DP"))
             {
-                var separator = trimmedLine.Contains("N") ? 'N' : 'S';
-                var parts = trimmedLine.Substring(3).Split(new[] { separator }, StringSplitOptions.RemoveEmptyEntries);
-                parts[0] = parts[0] + separator;
-                
-                if (parts.Length == 2)
+                var coordinateString = trimmedLine.Substring(3).Replace(":","-");
+
+                Coordinate c; //Create new Coordindate to populate
+                if (Coordinate.TryParse(coordinateString, out c)) //Coordinate parse was successful, Coordinate object has now been created and populated
                 {
-                    if (ParseDmsCoordinate(parts[0], out double lat) &&
-                        ParseDmsCoordinate(parts[1], out double lon))
-                    {
-                        currentAirspace.Coordinates.Add((lat, lon));
-                    }
+                    currentAirspace.Coordinates.Add(c);  
+                } else {
+                    Console.WriteLine("Airspace Coordinate parse failed");
                 }
             }
         }
@@ -356,44 +360,20 @@ public class Program
         return airspaces;
     }
 
-    private static bool ParseDmsCoordinate(string dmsWithHemisphere, out double result)
-    {
-        result = 0;
-        string dms = dmsWithHemisphere.Substring(0, dmsWithHemisphere.Length - 1).Trim();
-        char hemisphere = dmsWithHemisphere[dmsWithHemisphere.Length - 1];
-
-        var parts = dms.Split(':');
-        if (parts.Length != 3) return false;
-
-        if (int.TryParse(parts[0], out int degrees) &&
-            int.TryParse(parts[1], out int minutes) &&
-            double.TryParse(parts[2], out double seconds))
-        {
-            result = degrees + minutes / 60.0 + seconds / 3600.0;
-
-            if (hemisphere == 'S' || hemisphere == 'W')
-            {
-                result = -result;
-            }
-
-            return true;
-        }
-
-        return false;
-    }
-
-    private static List<Airspace> TransformAirspaces(List<Airspace> airspaces,
-    double oldStartLat, double oldStartLon,
-    double newStartLat, double newStartLon, double newHeading)
+    private static List<Airspace> TransformAirspaces(List<Airspace> templateAirspaces, Coordinate tmplStart, Coordinate newStart, double newHeading)
     {
         var transformedAirspaces = new List<Airspace>();
 
         // Calculate the rotation angle
-        var firstAirspaceCoord = airspaces[0].Coordinates[0];
-        var oldFirstLegBearing = CalculateBearing(oldStartLat, oldStartLon, firstAirspaceCoord.Lat, firstAirspaceCoord.Lon);
-        var rotationAngle = newHeading - oldFirstLegBearing;
+        var firstTmplAirspaceCoord = templateAirspaces[0].Coordinates[0];
+        var startToFirstAirspaceCoord = new Distance(tmplStart, firstTmplAirspaceCoord);
+        var tmplFirstLegBearing = startToFirstAirspaceCoord.Bearing;
+        var rotationAngle = newHeading - tmplFirstLegBearing;
 
-        foreach (var airspace in airspaces)
+        var prevTmplCoord = tmplStart;
+        var prevNewCoord = newStart;
+
+        foreach (var airspace in templateAirspaces)
         {
             var transformedAirspace = new Airspace
             {
@@ -403,30 +383,26 @@ public class Program
                 Ceiling = airspace.Ceiling
             };
 
-            var prevLat = oldStartLat;
-            var prevLon = oldStartLon;
-            var newPrevLat = newStartLat;
-            var newPrevLon = newStartLon;
+            
 
-            foreach (var (lat, lon) in airspace.Coordinates)
+            foreach (Coordinate curTmplCoord in airspace.Coordinates)
             {
                 // Calculate distance and bearing from previous to current point
-                var distance = CalculateDistance(prevLat, prevLon, lat, lon);
-                var oldBearing = CalculateBearing(prevLat, prevLon, lat, lon);
+                var tmplLeg = new Distance(prevTmplCoord, curTmplCoord);
 
                 // Apply rotation to the bearing
-                var newBearing = (oldBearing + rotationAngle + 360) % 360;
+                var newBearing = (tmplLeg.Bearing + rotationAngle + 360) % 360;
 
                 // Calculate new position
-                var (newLat, newLon) = CalculateDestination(newPrevLat, newPrevLon, newBearing, distance);
+                Coordinate newCoord = new Coordinate(prevNewCoord.Latitude.DecimalDegree, prevNewCoord.Longitude.DecimalDegree);
+                newCoord.Move(tmplLeg.Meters, newBearing, Shape.Ellipsoid);
+              
 
-                transformedAirspace.Coordinates.Add((newLat, newLon));
+                transformedAirspace.Coordinates.Add(newCoord);
 
                 // Update previous coordinates for the next iteration
-                prevLat = lat;
-                prevLon = lon;
-                newPrevLat = newLat;
-                newPrevLon = newLon;
+                prevTmplCoord = curTmplCoord;
+                prevNewCoord = newCoord;
             }
 
             transformedAirspaces.Add(transformedAirspace);
@@ -445,12 +421,26 @@ public class Program
                 writer.WriteLine($"AN {airspace.Name}");
                 writer.WriteLine($"AL {airspace.Floor}");
                 writer.WriteLine($"AH {airspace.Ceiling}");
-                foreach (var (lat, lon) in airspace.Coordinates)
+                foreach (Coordinate coord in airspace.Coordinates)
                 {
-                    writer.WriteLine($"DP {lat:F6} {lon:F6}");
+
+                    coord.FormatOptions.Format = CoordinateFormatType.Degree_Minutes_Seconds; 
+                    string openAirCoord = GetOpenAirCoordinate(coord);
+                    writer.WriteLine($"DP {openAirCoord}");
                 }
                 writer.WriteLine();
             }
         }
+    }
+
+    private static string GetOpenAirCoordinate(Coordinate c)
+    {
+        c.FormatOptions.Format = CoordinateFormatType.Degree_Minutes_Seconds;
+
+        //convert to deg:min:sec N
+        var lat = c.Latitude.Degrees.ToString("00") + ":" + c.Latitude.Minutes.ToString("00") + ":" + c.Latitude.Seconds.ToString("00") + " " + c.Latitude.Position;
+        var lon = c.Longitude.Degrees.ToString("000") + ":" + c.Longitude.Minutes.ToString("00") + ":" + c.Longitude.Seconds.ToString("00") + " " + c.Longitude.Position;
+
+        return lat+lon;
     }
 }
